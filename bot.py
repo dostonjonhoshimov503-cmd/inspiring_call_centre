@@ -1,54 +1,40 @@
 
 import os
 import re
-import threading
 from datetime import datetime, date, time, timedelta
 from pathlib import Path
-import logging
+from flask import Flask, request
 
-# Flask for Render port binding
-from flask import Flask
-flask_app = Flask(__name__)
-
-@flask_app.route('/')
-def home():
-    return "Inspiring Bot is running - OK", 200
-
-@flask_app.route('/health')
-def health():
-    return "OK", 200
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    print(f"Flask dummy server starting on port {port}")
-    flask_app.run(host="0.0.0.0", port=port)
-
-# Telegram bot imports
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except:
     pass
 
-logging.basicConfig(level=logging.INFO)
-
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "9170467133:AAEtyfAuc8PUxsXcKt1oXhryy-IiggRfz8Y")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_CHAT_IDS = [int(x) for x in os.environ.get("ADMIN_CHAT_IDS", "8845795700").split(",") if x.strip().isdigit()]
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "1eN0Mis_VzZvT5d17uFbIKVcFjfnZ0w-Z6PsaGtU4wdY")
 GOOGLE_CREDS_FILE = os.environ.get("GOOGLE_CREDS_FILE", "credentials.json")
 SHEET_NAME = os.environ.get("SHEET_NAME", "Varaq1")
+RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://inspiring-call-centre.onrender.com")
+
+print(f"BOT_TOKEN mavjud: {bool(BOT_TOKEN)} len={len(BOT_TOKEN) if BOT_TOKEN else 0}")
+print(f"RENDER_URL: {RENDER_URL}")
+
+# Flask
+app = Flask(__name__)
+
+# Telegram bot setup - webhook mode
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
 FILIALLAR = {
-    "CHILONZOR": {"nomi": "Chilonzor", "manzil": "Novza metro, Sport tovar chorraxasi, 4-etaj", "tel": "+998(71)278-07-97", "lat": 41.295842, "lon": 69.21642},
+    "CHILONZOR": {"nomi": "Chilonzor", "manzil": "Novza metro", "lat": 41.295842, "lon": 69.21642},
     "YASHNOBOD": {"nomi": "Yashnobod", "manzil": "Maxtumquli 85", "lat": 41.3000, "lon": 69.3500},
-    "MIRZO ULUG'BEK": {"nomi": "Mirzo Ulug'bek", "manzil": "Mirzo Ulug'bek tumani", "lat": 41.3005, "lon": 69.33},
-    "SERGELI": {"nomi": "Sergeli", "manzil": "Sergeli 3-bekat", "lat": 41.2273, "lon": 69.209},
+    "MIRZO ULUG'BEK": {"nomi": "Mirzo Ulug'bek", "manzil": "Mirzo Ulug'bek", "lat": 41.3005, "lon": 69.33},
+    "SERGELI": {"nomi": "Sergeli", "manzil": "Sergeli", "lat": 41.2273, "lon": 69.209},
     "BERUNIY": {"nomi": "Beruniy", "manzil": "Beruniy metro", "lat": 41.3143, "lon": 69.228},
-    "TURKISTON": {"nomi": "Turkiston", "manzil": "Yunusobod", "lat": 41.3626, "lon": 69.286},
 }
-
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 
 FILIAL, ISM, TELEFON, SANA = range(4)
 
@@ -91,21 +77,19 @@ def read_sheet():
             ws = sheet.worksheet(SHEET_NAME)
         except:
             ws = sheet.sheet1
-        rows = ws.get_all_records()
-        return rows
+        return ws.get_all_records()
     except Exception as e:
         print(f"Sheet xato: {e}")
         return []
 
 async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE):
-    print(f"[{datetime.now()}] Sheet tekshirilmoqda...")
     rows = read_sheet()
     if not rows:
         return
     tomorrow = date.today() + timedelta(days=1)
     ertaga = []
     for row in rows:
-        ism = row.get("ISM FAMILIYASI") or row.get("ISM") or ""
+        ism = row.get("ISM FAMILIYASI") or ""
         tel = row.get("TEL NOMERI") or ""
         filial = row.get("FILIALI") or ""
         maqsad = row.get("MAQSADI") or ""
@@ -115,17 +99,12 @@ async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE):
                 if re.search(r"\d{1,2}\.\d{1,2}\.\d{4}", str(v)):
                     izoh = v
                     break
-        if not izoh:
-            continue
-        if "KELADI" not in str(maqsad).upper():
+        if not izoh or "KELADI" not in str(maqsad).upper():
             continue
         dt = parse_izoh_date(izoh)
-        if not dt:
-            continue
-        if dt.date() == tomorrow:
+        if dt and dt.date() == tomorrow:
             ertaga.append({"ism": ism, "tel": tel, "filial": filial, "vaqt": dt})
     if not ertaga:
-        print("Ertaga keladigan yo'q")
         return
     msg = f"🔔 *Ertaga keladiganlar - {tomorrow.strftime('%d.%m.%Y')}*\nJami: {len(ertaga)} ta\n\n"
     for i, m in enumerate(ertaga, 1):
@@ -133,13 +112,13 @@ async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE):
     for admin_id in ADMIN_CHAT_IDS:
         try:
             await context.bot.send_message(chat_id=admin_id, text=msg, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Admin {admin_id} ga yuborilmadi: {e}")
+        except:
+            pass
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[KeyboardButton(f"✅ Filial: {v['nomi']}")] for k, v in FILIALLAR.items()]
     markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Assalomu alaykum! Inspiring Education ga xush kelibsiz!\n\nFilialni tanlang:", reply_markup=markup)
+    await update.message.reply_text("Assalomu alaykum! Filialni tanlang:", reply_markup=markup)
     return FILIAL
 
 async def filial_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,9 +127,9 @@ async def filial_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if val["nomi"].lower() in text.lower() or key.lower() in text.lower():
             context.user_data["filial"] = val["nomi"]
             context.user_data["filial_info"] = val
-            await update.message.reply_text(f"✅ Filial: {val['nomi']}\n\nIsm-sharifingizni kiriting:")
+            await update.message.reply_text(f"✅ Filial: {val['nomi']}\nIsm-sharifingiz:")
             return ISM
-    await update.message.reply_text("Iltimos, filialni tanlang:")
+    await update.message.reply_text("Filialni tanlang:")
     return FILIAL
 
 async def ism_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -159,20 +138,16 @@ async def ism_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return TELEFON
 
 async def telefon_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.contact:
-        tel = update.message.contact.phone_number
-    else:
-        tel = update.message.text
+    tel = update.message.contact.phone_number if update.message.contact else update.message.text
     context.user_data["tel"] = tel
-    await update.message.reply_text("Qaysi kuni kelasiz? Masalan: 02.11 14:00", reply_markup=ReplyKeyboardMarkup([["02.11 14:00", "03.11 10:00"]], resize_keyboard=True))
+    await update.message.reply_text("Qachon kelasiz? Masalan: 02.11 14:00")
     return SANA
 
 async def sana_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sana_text = update.message.text
-    dt = parse_izoh_date(sana_text)
+    dt = parse_izoh_date(update.message.text)
     if not dt:
         try:
-            dt = parse_izoh_date(sana_text + f".{datetime.now().year} 10:00")
+            dt = parse_izoh_date(update.message.text + f".{datetime.now().year} 10:00")
         except:
             dt = datetime.now() + timedelta(days=1)
     ism = context.user_data.get("ism", "")
@@ -193,72 +168,86 @@ async def sana_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ws = sheet.sheet1
             ws.append_row([ism, tel, filial, "KELADI", "", "", "", "", dt.strftime("%d.%m.%Y %H:%M"), "BOT ORQALI"])
     except Exception as e:
-        print(f"Sheet ga yozishda xato: {e}")
-    await update.message.reply_text(f"✅ *Muvaffaqiyatli yozildingiz!*\n\n👤 {ism}\n🏢 {filial}\n📅 {dt.strftime('%d.%m.%Y %H:%M')}\n\n📍 {filial_info.get('manzil','')}\n🔔 Ertaga 19:00 da eslatma yuboramiz.", parse_mode="Markdown")
-    try:
-        if filial_info.get("lat"):
-            await context.bot.send_location(chat_id=update.effective_chat.id, latitude=filial_info["lat"], longitude=filial_info["lon"])
-    except:
-        pass
-    for admin_id in ADMIN_CHAT_IDS:
-        try:
-            await context.bot.send_message(chat_id=admin_id, text=f"🆕 Yangi yozilish:\n👤 {ism}\n📞 {tel}\n🏢 {filial}\n📅 {dt.strftime('%d.%m %H:%M')}")
-        except:
-            pass
+        print(f"Sheet yozish xato: {e}")
+    await update.message.reply_text(f"✅ Yozildingiz!\n👤 {ism}\n🏢 {filial}\n📅 {dt.strftime('%d.%m %H:%M')}", parse_mode="Markdown")
     return ConversationHandler.END
 
 async def tekshir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ADMIN_CHAT_IDS and update.effective_chat.id not in ADMIN_CHAT_IDS:
         await update.message.reply_text("Faqat admin uchun")
         return
-    await update.message.reply_text("⏳ Izoh ustuni tekshirilmoqda...")
+    await update.message.reply_text("⏳ Izoh tekshirilmoqda...")
     await check_and_send_reminders(context)
-    await update.message.reply_text("✅ Tekshiruv tugadi!")
+    await update.message.reply_text("✅ Tugadi!")
 
 async def ertaga_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if ADMIN_CHAT_IDS and update.effective_chat.id not in ADMIN_CHAT_IDS:
-        return
     await check_and_send_reminders(context)
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bekor qilindi")
     return ConversationHandler.END
 
-def run_bot():
-    try:
-        application = Application.builder().token(BOT_TOKEN).build()
-        conv = ConversationHandler(
-            entry_points=[CommandHandler("start", start)],
-            states={
-                FILIAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, filial_handler)],
-                ISM: [MessageHandler(filters.TEXT & ~filters.COMMAND, ism_handler)],
-                TELEFON: [MessageHandler(filters.TEXT | filters.CONTACT, telefon_handler)],
-                SANA: [MessageHandler(filters.TEXT & ~filters.COMMAND, sana_handler)],
-            },
-            fallbacks=[CommandHandler("cancel", cancel)]
-        )
-        application.add_handler(conv)
-        application.add_handler(CommandHandler("tekshir", tekshir))
-        application.add_handler(CommandHandler("ertaga", ertaga_cmd))
-        try:
-            import pytz
-            tz = pytz.timezone("Asia/Tashkent")
-            application.job_queue.run_daily(check_and_send_reminders, time=time(hour=19, minute=0, tzinfo=tz))
-            application.job_queue.run_repeating(check_and_send_reminders, interval=3600, first=30)
-        except:
-            application.job_queue.run_daily(check_and_send_reminders, time=time(hour=19, minute=0))
-            application.job_queue.run_repeating(check_and_send_reminders, interval=3600, first=30)
-        print("Kombayn bot ishga tushdi - Izoh ustunini o'qiydi + mijoz qabul qiladi")
-        # Muhim: drop_pending_updates=True - Conflict ni oldini oladi
-        application.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
-    except Exception as e:
-        print(f"Bot xato: {e}")
-        import time
-        time.sleep(5)
+# Build application
+application = Application.builder().token(BOT_TOKEN).build()
 
-if __name__ == "__main__":
-    # Bot ni alohida threadda ishga tushirish
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-    # Flask ni asosiy threadda ishga tushirish - Render port ni topadi
-    run_flask()
+conv = ConversationHandler(
+    entry_points=[CommandHandler("start", start)],
+    states={
+        FILIAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, filial_handler)],
+        ISM: [MessageHandler(filters.TEXT & ~filters.COMMAND, ism_handler)],
+        TELEFON: [MessageHandler(filters.TEXT | filters.CONTACT, telefon_handler)],
+        SANA: [MessageHandler(filters.TEXT & ~filters.COMMAND, sana_handler)],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)]
+)
+application.add_handler(conv)
+application.add_handler(CommandHandler("tekshir", tekshir))
+application.add_handler(CommandHandler("ertaga", ertaga_cmd))
+
+try:
+    import pytz
+    tz = pytz.timezone("Asia/Tashkent")
+    application.job_queue.run_daily(check_and_send_reminders, time=time(hour=19, minute=0, tzinfo=tz))
+    application.job_queue.run_repeating(check_and_send_reminders, interval=3600, first=30)
+except:
+    application.job_queue.run_daily(check_and_send_reminders, time=time(hour=19, minute=0))
+    application.job_queue.run_repeating(check_and_send_reminders, interval=3600, first=30)
+
+@app.route('/', methods=['GET'])
+def index():
+    return "Bot is running - webhook mode", 200
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    try:
+        update = Update.de_json(request.get_json(force=True), application.bot)
+        application.update_queue.put_nowait(update)
+    except Exception as e:
+        print(f"Webhook xato: {e}")
+    return "OK", 200
+
+@app.route('/setwebhook', methods=['GET'])
+def set_webhook():
+    try:
+        import requests
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={RENDER_URL}/webhook"
+        r = requests.get(url)
+        return f"Webhook set: {r.text}", 200
+    except Exception as e:
+        return f"Xato: {e}", 500
+
+if __name__ == '__main__':
+    import asyncio
+    # Webhook ni o'rnatish uchun bir marta chaqirish
+    try:
+        import requests
+        webhook_url = f"{RENDER_URL}/webhook"
+        set_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}"
+        print(f"Webhook o'rnatilmoqda: {webhook_url}")
+        r = requests.get(set_url)
+        print(f"Webhook natija: {r.text}")
+    except Exception as e:
+        print(f"Webhook o'rnatish xato: {e}")
+    
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
