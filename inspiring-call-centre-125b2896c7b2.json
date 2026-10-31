@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "inspiring-call-centre",
+  "private_key_id": "125b2896c7b2e8c545c757ec61f10029ad623b39",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDIU5PivP7nPJM5\nORDNhxeBg38eDSu+tKGCz70rA1D91oKeQV64/gWdX9mkgK8T6k1FSpEGptqwByTM\nQsQX+e1P9RgWHg3nG2OLCPn2Q+F0wDN8KyFTd2hndG8Hq2JqUfaYv0fex+Y1U8XW\nf6jkygV9RfOZ0B4bPyo7PVYJ0shTtwx/omDztwGNlqvQYqVHNyZA6iazToQUwF8G\n4dv0GYcnSJySWZF+bcy+iOCKPr1yFOF0fDp6fheQloIAWIXAaMn/MB8u/w3m75h5\n+5T7oR0iLVE/0HyxZJpkGOx4J7kfW0gH/fjnEdXBl+SADW1Ssa0xvpNzlCv4rvY3\nwrppeMcjAgMBAAECggEATgshhigTNosG4Dg3L5r9sVtFXrPK4xUEBy5fiC5Wk03K\nvVTCTlfIYDNDWy83Bg8141TVgz3l3MYrs9gfBSg9J/VYWOWEjRDCixwIJcT0RMPM\nSweSiC3w4r0dtGM0iC8+XuvGWCiQqx3j6Vj6t4ds9A0YhkfqMrs8/K88ob8YhGQO\nv+h2u1qqAEPcpfT1FLodV6rBKt7HajofxWwC77IZa8P36IcRnulxfTkV6W/hh/2K\nwRbhJmQqFTY4rNWI6RKRn432AGOOwyriGH7QDZnFAGhGbldf9FIKKaBbVQtJbFo1\n0ljysLRcIBu67fQ7LAWa2QvHTQuuebfCO1bJag/jwQKBgQD3DA5FJSd9I+6g+0GE\nxq8ZWfDX7vuLdIzt3PTe5p33KCtMRzW9ovB9ukxMJ0Tts94kYThdgJVY2wEGAypr\nRSmNSvwda8o4yCs11Fbu6yKddPFsS5p+2sA0tZVcYsWy6/QLx8J+KqOtwaXxjtF+\nJcN672TlKupj8UeytnPhZVqo6QKBgQDPlhP7XM3zE89MJdkGansdh1GdKKvTCS81\n+JjNINf/MXlxDjp3WhM5DTHW+nCyljylligMAiht68PJ2GFXk+Ct0rp37tOfbilc\nZYs3NLEq1F15pIqNn5iUuuGu6VHWKCMSkxrSgz92w6qb7zJ1NYFmDNyqThZ5kQbO\n2CDgycooKwKBgC/dvB4VltMeVSwHwqgRPvfwf0O3YDGjAXNM7n0Jve2XcNw0p+r4\nWRRjNklDCo3r3cy6sYscUNOIi2g40M0791MTBkpFCkd6MTUa0UU1dd2APQ64j1So\n2bjcvfXKhXenU/+8UqjTZidSb+6ft2Nzua5mF+x3Jjb7FuM/irBPTQORAoGAe7cD\nvaC3lRDPUKCV0P8Q1K5a84DTtngYzN+VoVrbn9lKeRhzu8HRBwVYGLk1BRoIlt8A\niveWRLxn+RmeGeWl17JpMyUAtlmfCNPzvjkHBXF/LAnmETV2Z91gty+SeEF/dYh6\nSc+yuQMv4LMTrUrwDXPI5y6Wsmi+V/Py1EUu1/UCgYAU3e9MHL/cNgV70U9bapFa\nmUO03xSzBZDdLPM30zM1nfO6pX9HMHueA1aPSGKlfQF4zXbvOUSfrEaC4OZealvX\nNFjNRR+P36tRWHym8GKe+O8MN2xPlhVNB2JStV6d6mNy4fzDWT4qIG0n1QgwpzON\nWX9UzbadLIKs869WILX/sQ==\n-----END PRIVATE KEY-----\n",
+  "client_email": "client_email": "inspiring-call-centre@inspiring-call-centre.iam.gserviceaccount.com",
+  "client_id": "112710819571342394392",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/inspiring-call-centre%40inspiring-call-centre.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
