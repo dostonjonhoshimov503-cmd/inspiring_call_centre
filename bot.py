@@ -12,6 +12,7 @@ SHEET_NAME = os.environ.get("SHEET_NAME","Varaq1")
 RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL","https://inspiring-call-centre.onrender.com").rstrip("/")
 
 print(f"BOT_TOKEN ok: {bool(BOT_TOKEN)} len={len(BOT_TOKEN) if BOT_TOKEN else 0}")
+print("--- V2 BOT STARTING ---")
 print(f"RENDER_URL: {RENDER_URL}")
 
 flask_app = Flask(__name__)
@@ -78,9 +79,15 @@ async def check_and_send_reminders(context):
     if not ertaga: print("Ertaga yoq"); return
     msg=f"🔔 *Ertaga keladiganlar - {tomorrow.strftime('%d.%m.%Y')}*\nJami: {len(ertaga)} ta\n\n"
     for i,m in enumerate(ertaga,1): msg+=f"{i}. 👤 {m['ism']}\n   📞 {m['tel']}\n   🏢 {m['filial']}\n   🕐 {m['vaqt'].strftime('%d.%m %H:%M')}\n\n"
+    # Agar admin yo'q bo'lsa, hech kimga yubormaydi, shuning uchun tekshiruvda alohida yuboramiz
+    if not ADMIN_CHAT_IDS:
+        print("ADMIN_CHAT_IDS bo'sh - hech kimga avtomatik yuborilmaydi")
     for admin_id in ADMIN_CHAT_IDS:
         try: await context.bot.send_message(chat_id=admin_id,text=msg,parse_mode="Markdown")
-        except Exception as e: print(f"Admin yuborilmadi: {e}")
+        except Exception as e: print(f"Admin {admin_id} ga yuborilmadi: {e}")
+    # Qo'shimcha: check_and_send_reminders chaqirilganda, agar msg bo'lsa, uni qaytarish uchun context ga saqlaymiz
+    context.bot_data["last_reminder_msg"] = msg if ertaga else None
+    return msg if ertaga else None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard=[[KeyboardButton(f"✅ Filial: {v['nomi']}")] for k,v in FILIALLAR.items()]
@@ -130,13 +137,21 @@ async def sana_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def tekshir(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if ADMIN_CHAT_IDS and update.effective_chat.id not in ADMIN_CHAT_IDS:
-        await update.message.reply_text("Faqat admin uchun"); return
-    await update.message.reply_text("⏳ Izoh tekshirilmoqda...")
-    await check_and_send_reminders(context)
+    print(f"/tekshir chaqirildi - chat_id={update.effective_chat.id} user={update.effective_user.first_name}")
+    await update.message.reply_text(f"⏳ Izoh tekshirilmoqda... (sizning ID: {update.effective_chat.id})")
+    msg = await check_and_send_reminders(context)
+    if msg:
+        try:
+            await update.message.reply_text(msg, parse_mode="Markdown")
+        except:
+            await update.message.reply_text(msg)
+    else:
+        await update.message.reply_text("Ertaga keladiganlar yo'q ekan (Izoh da ertangi sana bilan KELADI yozilgan qator topilmadi).")
     await update.message.reply_text("✅ Tugadi!")
 
+
 async def ertaga_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"/ertaga chaqirildi - chat_id={update.effective_chat.id}")
     await check_and_send_reminders(context)
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -173,9 +188,16 @@ loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
 async def ptb_startup():
+    print("PTB startup boshlanmoqda...")
     await application.initialize()
     await application.start()
-    print("PTB Application started - webhook mode ready")
+    print("PTB Application started - webhook mode ready - SUCCESS")
+    print(f"Bot username olinmoqda...")
+    try:
+        me = await application.bot.get_me()
+        print(f"Bot connected: @{me.username} - {me.first_name}")
+    except Exception as e:
+        print(f"Bot get_me xato: {e}")
 
 def run_ptb_loop():
     loop.run_until_complete(ptb_startup())
